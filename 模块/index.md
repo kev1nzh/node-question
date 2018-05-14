@@ -6,7 +6,7 @@
 <br/>
     答：可以拿到。每个js文件可以独立环境，是因为node在外面包了个自执行，全局变量稳稳地可以拿到。
     <br>
-```javasript
+```javascript
 // b.js
 (function (exports, require, module, __filename, __dirname) {
   t = 111;
