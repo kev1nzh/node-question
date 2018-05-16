@@ -1,6 +1,6 @@
 const immediate = require('immediate')
 
-
+//https://zhuanlan.zhihu.com/p/25178630
 /**
  * then方法中生成了一个新的promise，如果promise的状态改变，就调用unwrap
  * 否则就把新生成的promise加入当前的promise的回调队列queue里
