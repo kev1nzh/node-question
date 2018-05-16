@@ -36,9 +36,51 @@ Promise.prototype.catch = (onRejected) => {
     return this.then(null, onRejected)
 }
 
-Promise.resolve = () => {}
-Promise.reject = () => {}
-Promise.all = () => {}
+Promise.resolve = value => {
+    if(value instanceof this) {
+        return value 
+    }
+    return doResolve(new this(INTERNAL), value)
+}
+Promise.reject = reason => {
+    const promise = new this(INTERNAL)
+    return doReject(promise, reason)
+}
+Promise.all = iterable => {
+    let self = this 
+    if(!isArray(iterable)) {
+        return this.reject(new TypeError('must be an array'))
+    }
+    const len = iterable.length 
+    const called = false 
+    if(!len) {
+        return this.resolve([])
+    }
+    const values = new Array(len)
+    const resolved = 0
+    const i = -1 
+    const promise = new this(INTERNAL)
+
+    while( ++i < len) {
+        allResolver(iterable[i], i)
+    }
+    return promise 
+    function allResolver(value, i) {
+        self.resolve(value).then(resolveFromAll, error => {
+            if(!called) {
+                called = true 
+                doReject(promise, error)
+            }
+        })
+        function resolveFromAll(outValue){
+            values[i] = outValue
+            if(++resolved === len && !called) {
+                called = true 
+                doResolve(promise, values)
+            }
+        }
+    }
+}
 Promise.race = () => {}
 
 /**
@@ -113,6 +155,37 @@ function doResolve(self, value) {
     }
     catch(error) {
         return doReject(self, error)
+    }
+}
+/**
+ * promise 为 then 生成的新 promise（以下称为『子promise』），
+ * onFulfilled 和 onRejected 即是 then 参数中的 onFulfilled 和 onRejected。
+ * 从上面代码可以看出：比如当 promise 状态变为 FULFILLED 时，之前注册的 then 函数，
+ * 用 callFulfilled 调用 unwrap 进行解包最终得出子 promise 的状态和值，
+ * 之前注册的 catch 函数，用 callFulfilled 直接调用 doResolve，设置队列里子 promise 的状态和值。
+ * 当 promise 状态变为 REJECTED 类似。
+ * 
+ * @param {any} promise 
+ * @param {any} onFulfilled 
+ * @param {any} onRejected 
+ */
+function QueueItem(promise, onFulfilled, onRejected) {
+    this.promise = promise 
+    this.callFulfilled = value => {
+        doResolve(this.promise, value)
+    }
+    this.callRejected = error => {
+        doReject(this.promise, error)
+    }
+    if(isFunction(onFulfilled)) {
+        this.callFulfilled = value => {
+            unwrap(this.promise, onFulfilled, value)
+        }
+    }
+    if(isFunction(onRejected)) {
+        this.callRejected = error => {
+            unwrap(this.promise, onRejected, error)
+        }
     }
 }
 function doReject(self, error) {
